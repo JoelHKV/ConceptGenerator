@@ -32,9 +32,9 @@ firestore_db = init_firebase()
 import time
 
 
-mode='raw'
+mode='generate'
 
-if mode=='raw':
+if mode=='generate':
     concept_end_point='motor'
     depth = 1
     
