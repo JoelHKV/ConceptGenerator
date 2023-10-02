@@ -6,6 +6,7 @@ RETRY_DELAY = 5  # in seconds
 
 def create_related_concepts(openai, concept, nro):
     text = 'Return a python array that contains ' + str(nro) + ' concepts related to """' + concept + '""" Just return the array, do now write anything else.' 
+
     message_log = [
     {"role": "system", "content": text}
     ]
@@ -41,6 +42,8 @@ def sort_concepts_along_dimension(openai, concept_array, dimension):
             return eval(response_content)
         else:
             print("Invalid or unsafe Python array expression in the response. Retrying...")
+            print(concept_array)
+            print(response_content)
             time.sleep(RETRY_DELAY)
     
     print("Failed after maximum retries. Returning an empty array.")

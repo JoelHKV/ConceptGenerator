@@ -80,7 +80,7 @@ The project directory is organized as follows:
 * ConceptGenerator.py: The entry point for all steps in the way.
 * src/: Contains functions for data processing.
 * utils/: Holds utility functions for credentials etc.
-* data/: Stores example data (not a functional part as actual data is handled by Firestore in every step of the way.).
+* data/: Stores example data (not a functional part as actual data is handled by Firestore).
 
 
 
@@ -92,36 +92,36 @@ Additionally, more levels of concept recursion can be added without
 having to rerun lower levels first.
 
 ### Generate Interconnected Concepts with ChatGPT 
-To run this step, set ```mode='generate'``` in ```ConceptGenerator.py ```. 
+To run this step, set ```mode='generate_connections'``` in ```ConceptGenerator.py ```. 
 Also, specify a starting concept (e.g., ```concept_end_point='mind'```) 
-and the recursion depth (e.g., ```depth = 2```).
+and the starting and ending recursion depths (e.g., ```start_depth = 0```, ```end_depth = 3```).
 
-The iteration begins with the starting concept.
+The iteration begins with the starting concept (Level 0), which is 
+first inputted to ChatGPT to generate 8 related concepts (Level 1). Each of these
+related concepts is then inputted to ChatGPT to generate even more related concepts (Level 2).
+The iteration continues until the desired recursion depth is reached  (e.g., ```end_depth = 3```).
 
-At level 1, the script instructs ChatGPT to generate 8 
-concepts related to the starting concept. Then, at level 2, 
-the script iterates through these 8 newly created concepts 
-and requests ChatGPT to generate 8 concepts related to 
-each of them. In theory, this would yield 64 concepts in total (8 * 8), 
-but due to some overlap, the actual number is smaller. Subsequently, 
-at level 3, the script iterates through these new concepts (up to 64) 
-to create even more concepts, and so on.
+In theory, the algoritm yields 8 times more concepts for each iteration. In practice, 
+concepts start re-appearing and since the algoritm does not recompute them, 
+the overall complexity is less. 
 
-The script outputs a dictionary where each iterated concept is a key. One line looks like this:
 
-```judgment: {'branch': 'mind', 'concepts': ['decision', 'evaluation', 'assessment', 'discernment', 'verdict', 'opinion', 'critique', 'analysis']} ```
+The script outputs a dictionary where each iterated concept is a key. 
+One line looks like this:
 
-Within each key, there is a 'branch' key with the user-defined starting 
-concept (e.g., 'mind') as the value. The second key, 'concepts,' contains 
+```"perception": {"branch": [["truth", 2]], "concepts": ["sensation", "awareness", "interpretation", "cognition", "attention", "stimulus", "consciousness", "recognition"]}```
+
+Within each key, there is a 'branch' key with a 2-item array as a value. The first one
+is the starting concept and the second one is the recursion depths. 
+The second key, 'concepts,' contains 
 an 8-item array, with each item representing one related 
 concept created by ChatGPT.
 
-The dictionary is stored in Firestore as:  
+The resulted dictionary is saved locally as `data/raw_concept_data_truth.txt`.
 
-- **`conceptBrowser`** (Collection)
-  - **`concepts_raw`** (Collection)
+Here, 10 interations where fun 
 
-It is also saved locally as `data/raw_data.txt`.
+
 
 ### Refine Concept Connections
 This step utilizes the raw data generated in the previous step. To run this step, 
@@ -152,7 +152,7 @@ The `sort_concept_by_popularity` function, in turn, creates a key,
 concepts in descending order, scored in the previous step.
 
 Finally, `concepts` and `backward_concepts` are deleted from this 
-dictionary, leaving only 'ordered_concepts' as concept data.
+dictionary, leaving only `ordered_concepts` as concept data.
 
 This performant dictionary is the final interconnectedness data 
 stored in Firestore as: 
@@ -160,7 +160,7 @@ stored in Firestore as:
 - **`conceptBrowser`** (Collection)
   - **`concepts_refined`** (Collection)
 
-It is also saved locally as `data/raw_refined.txt`.
+It is also saved locally as `data/refined_data.txt`.
 
 ### Evaluate Concepts with ChatGPT
 
@@ -177,7 +177,7 @@ However, this approach yielded unreliable and counter-intuitive results.
 A more robust approach implemented here is to request ChatGPT to sort 
 the inputted concepts from most concrete to most abstract. 
 The exact reason why the latter approach is better is unclear, 
-but it probably has to do with the fact that Large Language Models, 
+but it probably has to do with the fact that Large Language Models (LLM), 
 contrary to computers in general, are better suited for verbal rather 
 than numerical information.
 
@@ -191,7 +191,7 @@ The method used here includes the following steps:
 
 The total number of ChatGPT requests is almost identical to 
 the naive approach discussed earlier. However, the data quality, 
-thanks to the nature of LLM (Large Language Models), is much better. 
+thanks to the nature of LLM, is much better. 
 The fact that each rating is an average of 10 sortings also reduces 
 the impact of random erroneous results, which ChatGPT sometimes produces.
 
@@ -271,5 +271,5 @@ files locally for inspection.
 ## Licence
 ## Known Issues
 ## Roadmap
-- Find new ways to generate data with ChatGPT
+- Find even better ways to evaluate concepts with ChatGPT
 ## Contact Information

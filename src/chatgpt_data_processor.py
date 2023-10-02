@@ -2,23 +2,31 @@ from src.chatgpt_prompt_functions import create_related_concepts # (openai, conc
 from src.chatgpt_prompt_functions import sort_concepts_along_dimension # (openai, concept_array, dimension)
 from src.chatgpt_prompt_functions import create_definition # (openai, concept, nro_words)
 
+import time
 
-
-def chatgpt_concept_iterator(openai, concept, depth, branch, concept_dict):
-    if depth == 0:
-        return
+def chatgpt_concept_iterator(openai, concept, current_depth, max_depth, branch, concept_dict, return_time):
+    if current_depth > max_depth:
+        return  
+    current_time = time.time() 
+    if current_time > return_time:
+        return 
     if concept in concept_dict:
         new_concepts = concept_dict[concept]['concepts']
     else:
-        new_concepts = create_related_concepts(openai, concept,8)
+        print(concept)
+        new_concepts = create_related_concepts(openai, concept, 9)  # Request 9 concepts
+        if concept in new_concepts:  # ChatGPT sometimes returns the initial concept
+            new_concepts.remove(concept)  # If so, remove it
+        else:
+            new_concepts.pop()  # Otherwise, remove the last item to keep the array 8 items long
         concept_dict[concept] = {}
-        concept_dict[concept]['branch'] = branch
+        concept_dict[concept]['branch'] = [(branch, current_depth)]
         concept_dict[concept]['concepts'] = new_concepts
+
     for this_concept in new_concepts:
-        chatgpt_concept_iterator(openai, this_concept, depth - 1, branch, concept_dict)
+        chatgpt_concept_iterator(openai, this_concept, current_depth + 1, max_depth, branch, concept_dict, return_time)
 
-    return concept_dict
-
+    return concept_dict 
 
 def iterate_backward_connections(concept_dict):
     keys_list = list(concept_dict.keys())
@@ -89,45 +97,52 @@ def sort_concept_by_popularity(concept_dict, popularity_dict):
     return concept_dict   
 
 
-def generate_concept_rating(openai, concept_dict, dimension, rounds):
-    import random
-    rating_dict = {}
-    for dict_index, key in enumerate(concept_dict):
-        rating_dict[key]={}
-        rating_dict[key]['abstract']=0
-        for in_concept in concept_dict[key]['ordered_concepts']:
-            in_concept = in_concept.replace('_', '').replace('*', '').replace("'", "")
-            rating_dict[in_concept]={}
-            rating_dict[in_concept]['abstract']=0
-    
-    
-    for i in range(rounds):
-        all_keys = list(rating_dict.keys())
-        random.shuffle(all_keys)
-        print(all_keys)
-        lenlen=len(all_keys)
-        step=9
 
-        while lenlen>0:
-            if lenlen % 10 == 0:
-                step=10
-            concept_array=all_keys[:step]       
-            sorted_concepts = sort_concepts_along_dimension(openai, concept_array, dimension) 
-            print(lenlen, sorted_concepts)
-            for ind, this_concept in enumerate(sorted_concepts):
-                value = (1+ind)/step/rounds             
-                rating_dict[this_concept]['abstract'] += value
-                
-            all_keys[:step]=[]
-            lenlen=len(all_keys)
-
+def generate_concept_rating(openai, concept_keys, dimension):
+    rating_dict = {}  
+    for i in range(0, len(concept_keys), 11):
+        batch_keys = concept_keys[i:i+11]
+        modified_batch_keys = [key.replace("'", "") for key in batch_keys]
+        
+        sorted_concepts = sort_concepts_along_dimension(openai, modified_batch_keys, dimension)
+        for ind, (original_key, modified_key) in enumerate(zip(batch_keys, sorted_concepts)):
+            rating_dict[original_key] = {}
+            rating_dict[original_key]['value'] = ind/10
     return rating_dict
 
 
-def add_rating_to_concept_data(concept_dict, rating_dict):
+def generate_concept_rating2(openai, concept_keys, dimension):
+    rating_dict = {}
+    
+    for i in range(0, len(concept_keys), 11):
+        batch_keys = concept_keys[i:i+11]
+        
+        # Modify batch keys for sorting (remove special characters)
+        modified_batch_keys = [key.replace("'", "") for key in batch_keys]
+        
+        # Sort the modified concepts
+        sorted_concepts = sort_concepts_along_dimension(openai, modified_batch_keys, dimension)
+        
+        for ind, (original_key, modified_key) in enumerate(zip(batch_keys, sorted_concepts)):
+            rating_dict[original_key] = {}
+            rating_dict[original_key]['value'] = ind/10
+    
+    return rating_dict
+ 
+
+
+
+
+
+
+
+
+def add_rating_to_concept_data(concept_dict, rating_dict, what_rating):
     for dict_index, key in enumerate(concept_dict):
-        abstract_rating = int(100*rating_dict[key]['abstract'])   
-        concept_dict[key]['abstract']=abstract_rating
+        this_rating_array = rating_dict[key][what_rating]
+        rating_average = sum(this_rating_array) / len(this_rating_array)
+        abstract_rating = int(100*rating_average)   
+        concept_dict[key][what_rating]=abstract_rating
 
     return concept_dict
 

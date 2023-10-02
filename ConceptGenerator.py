@@ -1,4 +1,5 @@
 
+from ast import Pass
 from utils.my_firebase_io import init_firebase #()
 from utils.my_firebase_io import read_firebase  #(this_collection, this_document)
 from utils.my_firebase_io import write_firebase #(this_collection, this_document, this_dict)
@@ -7,12 +8,13 @@ from utils.my_creds import get_openai_key
 
 from utils.little_helpers import return_sub_dict # (whole_dict, filter_field_name, filter_value)
 from utils.little_helpers import dict_to_csv #(csv_file_path, data_dict)
-from utils.little_helpers import dict_to_txt #(file_path, data_dict):
+from utils.little_helpers import dict_to_txt #(file_path, data_dict)
+from utils.little_helpers import txt_to_dict #(file_path)
 
+from utils.little_helpers import dict_to_json #(file_path, data_dict)
+from utils.little_helpers import json_to_dict #(file_path)
+from utils.little_helpers import get_sample_underpresented # (dimension_rating_data, dimension_name, dimension, sample_size)
 
-#from src.chatgpt_prompt_functions import create_related_concepts # (openai, concept, nro) returns nro co    
-#from src.chatgpt_prompt_functions import create_definition # (openai, concept, nro_words)
-#from src.chatgpt_prompt_functions import sort_concepts_along_dimension # (openai, concept_array, dimension) e.g. dimension = ['concrete', 'abstract']
 
 from src.chatgpt_data_processor import chatgpt_concept_iterator
 from src.chatgpt_data_processor import iterate_backward_connections # (concept_dict)
@@ -22,76 +24,146 @@ from src.chatgpt_data_processor import generate_concept_rating # (openai, concep
 from src.chatgpt_data_processor import generate_concept_definition #(openai, concept, length)
 from src.chatgpt_data_processor import add_rating_to_concept_data #(concept_dict, rating_dict)
 
-
-
 import openai
 
 openai.api_key = get_openai_key()
 firestore_db = init_firebase()
 
+import os
 import time
+import json
+import random
+
+folder = 'data'
+raw_files = 'raw_concept_data_'
+refined_file = 'combined_refined_concept_data.txt'
+dimension_rating_file = 'dimension_rating_data.txt'
+final_connection_data_file = 'final_connection_data.txt'
+
+mode='define'
 
 
-mode='generate'
 
-if mode=='generate':
-    concept_end_point='motor'
-    depth = 1
+
+
+if mode=='generate_connections':
+    start_depth = 0
+    end_depth = 3
+    run_for_sec_before_save = 10
+    concept_end_point='problem solving'
+    file_path= folder +  '/' + raw_files + concept_end_point.replace(' ', '_') + '.txt'
+    raw_concept_dict = json_to_dict(file_path)           
+    keep_going = True
+    while keep_going:        
+        return_time = time.time() + run_for_sec_before_save
+        raw_concept_dict = chatgpt_concept_iterator(openai, concept_end_point, start_depth, end_depth, concept_end_point, raw_concept_dict, return_time)              
+        dict_to_json(file_path, raw_concept_dict)        
+        keep_going = time.time() > return_time
+        print('saving now...')
+        
+if mode=='combine_data_and_refine':
+    combined_concept_dict = {}
+    all_files = os.listdir(folder)
+    matching_files = [file for file in all_files if file.startswith(raw_files) and file.endswith('.txt')]    
+    for filename in matching_files:
+        this_raw_concept_dict = json_to_dict(folder +  '/' + filename)
+        for dict_index, key in enumerate(this_raw_concept_dict):
+            if key in combined_concept_dict:
+                combined_concept_dict[key]['branch'].append(this_raw_concept_dict[key]['branch'][0])
+            else:
+                combined_concept_dict[key] = this_raw_concept_dict[key]         
     
-    raw_concept_data=read_firebase(firestore_db, 'conceptBrowser', 'concepts_raw')
-
-    raw_concept_subset = return_sub_dict(raw_concept_data, 'branch', concept_end_point)
-    start_time = time.time() 
-    raw_concept_subset = chatgpt_concept_iterator(openai, concept_end_point, depth, concept_end_point, raw_concept_subset)
-    end_time = time.time() 
-    elapsed_time = end_time - start_time  # Calculate the elapsed time
-    print(f"Elapsed time: {elapsed_time:.6f} seconds")
-
-    raw_concept_updated_combined_data = {**raw_concept_data, **raw_concept_subset} # latter dict takes priority in case of same keys
-
-    dict_to_txt('data/raw_data.txt',raw_concept_updated_combined_data)
-    write_firebase(firestore_db, 'conceptBrowser', 'concepts_raw', raw_concept_updated_combined_data)
-
-if mode=='refine':  
-    raw_concept_data=read_firebase(firestore_db, 'conceptBrowser', 'concepts_raw')
-    refined_concept_data = iterate_backward_connections(raw_concept_data) # other concepts related to this concept  
+    refined_concept_data = iterate_backward_connections(combined_concept_dict) # other concepts related to this concept  
     concept_popularity = compute_concept_popularity(refined_concept_data)
 
     refined_concept_data = sort_concept_by_popularity(refined_concept_data, concept_popularity)
-
-    dict_to_txt('data/sort_data.txt', refined_concept_data )
+    dict_to_json(folder +  '/' + refined_file, refined_concept_data)
     
-    write_firebase(firestore_db, 'conceptBrowser', 'concepts_refined', refined_concept_data)
 
-if mode=='rate':
-    rounds = 1
-    refined_concept_data = read_firebase(firestore_db, 'conceptBrowser', 'concepts_refined') 
-    
- 
-    #refined_concept_data = dict(list(refined_concept_data.items())[:4])
-
-
+if mode=='create_evaluation_ratings':
+    required_sample = 8
     dimension = ['concrete', 'abstract']
-    rating_dict = generate_concept_rating(openai, refined_concept_data, dimension, rounds)
+    #dimension = ['simple', 'complex']
+    dimension_name = dimension[1]
     
-    dict_to_txt('data/abst_rating_data.txt', rating_dict )
+    append_existing_rating_data = True
     
-    write_firebase(firestore_db, 'conceptBrowser', 'abstract_ratings', rating_dict)
- 
-if mode=='add_rate':   
-    refined_concept_data = read_firebase(firestore_db, 'conceptBrowser', 'concepts_refined')
-    rating_dict = read_firebase(firestore_db, 'conceptBrowser', 'abstract_ratings')
-    refined_concept_data = add_rating_to_concept_data(refined_concept_data, rating_dict)
-    dict_to_txt('data/final_data.txt', refined_concept_data)
+    refined_concept_data = json_to_dict(folder +  '/' + refined_file) 
+    refined_concept_keys = list(refined_concept_data.keys()) # these concept we want to rate
     
-    write_firebase(firestore_db, 'conceptBrowser', 'concepts_refined', refined_concept_data)
+    if append_existing_rating_data:
+        dimension_rating_data = json_to_dict(folder +  '/' + dimension_rating_file)
+    else:
+        print('init')
+        dimension_rating_data = {} 
+        for key in refined_concept_keys:
+            dimension_rating_data[key]={}
+            dimension_rating_data[key][dimension_name]=[]
+    
+    for key in refined_concept_keys:
+        dimension_rating_data.setdefault(key, {})   
+        dimension_rating_data[key].setdefault(dimension_name, [])
 
+    smallest_sample = 0
+    while smallest_sample<required_sample:
+        value = get_sample_underpresented(dimension_rating_data, dimension_name, dimension, 110)
+        random_keys_list, smallest_sample = value
+        rating_dict = generate_concept_rating(openai, random_keys_list, dimension)  
+        for key in rating_dict:
+            dimension_rating_data[key][dimension_name].append(rating_dict[key]['value'])  
+        dict_to_json(folder +  '/' + dimension_rating_file, dimension_rating_data)
+    
+
+if mode=='combine_final_file':
+    ratings_to_be_included=['all']
+    
+    refined_concept_data = json_to_dict(folder +  '/' + refined_file)
+    
+    if len(ratings_to_be_included)==0:
+        dict_to_json(folder +  '/' + final_connection_data_file, refined_concept_data)
+    else:
+ 
+        dimension_rating_data = json_to_dict(folder +  '/' + dimension_rating_file)
+    
+        if ratings_to_be_included[0]=='all':
+            first_main_key = next(iter(dimension_rating_data.keys()))
+            ratings_to_be_included = list(dimension_rating_data[first_main_key].keys())
+        
+        for this_rating in ratings_to_be_included:
+            refined_concept_data_with_dimension_rating = add_rating_to_concept_data(refined_concept_data, dimension_rating_data, this_rating)
+        dict_to_json(folder +  '/' + final_connection_data_file, refined_concept_data_with_dimension_rating) 
+
+if mode=='write_to_firestore':
+    refined_concept_data_with_dimension_rating = json_to_dict(folder +  '/' + final_connection_data_file)
+    for key in refined_concept_data_with_dimension_rating:
+        nested_list = refined_concept_data_with_dimension_rating[key]['branch']
+        flat_list = [item for sublist in nested_list for item in sublist]
+        refined_concept_data_with_dimension_rating[key]['branch']=flat_list
+        
+    chunk_to_save = {}
+    chunk_nro = 0
+    chunk_size = 200000
+    for key in refined_concept_data_with_dimension_rating:
+        chunk_to_save[key]=refined_concept_data_with_dimension_rating[key]      
+        json_str = json.dumps(chunk_to_save, ensure_ascii=False)
+        size_in_characters = len(json_str)
+        if (size_in_characters>chunk_size):
+            print(chunk_nro)
+            write_firebase(firestore_db, 'conceptBrowser', 'finalConceptData_' + str(chunk_nro), chunk_to_save)
+            chunk_to_save = {}
+            chunk_nro=chunk_nro+1
+    write_firebase(firestore_db, 'conceptBrowser', 'finalConceptData_' + str(chunk_nro), chunk_to_save)
+ 
 
 if mode=='define':
     definition_length = 80
-    refined_concept_data = read_firebase(firestore_db, 'conceptBrowser', 'concepts_refined')
-    refined_concept_data = dict(list(refined_concept_data.items()))
-    for dict_index, key in enumerate(refined_concept_data):
+
+    refined_concept_data = json_to_dict(folder +  '/' + refined_file) 
+    refined_concept_keys = list(refined_concept_data.keys()) # these concept we want to define
+
+
+    for dict_index, key in enumerate(refined_concept_keys):
+        key = key.replace('/', '-')
         this_concept_refinion = read_firebase(firestore_db, 'conceptNames', key)
         if this_concept_refinion==None:
             definition_dict = generate_concept_definition(openai, key, definition_length)
