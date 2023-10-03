@@ -6,15 +6,9 @@ from utils.my_firebase_io import write_firebase #(this_collection, this_document
 
 from utils.my_creds import get_openai_key
 
-from utils.little_helpers import return_sub_dict # (whole_dict, filter_field_name, filter_value)
-from utils.little_helpers import dict_to_csv #(csv_file_path, data_dict)
-from utils.little_helpers import dict_to_txt #(file_path, data_dict)
-from utils.little_helpers import txt_to_dict #(file_path)
-
 from utils.little_helpers import dict_to_json #(file_path, data_dict)
 from utils.little_helpers import json_to_dict #(file_path)
 from utils.little_helpers import get_sample_underpresented # (dimension_rating_data, dimension_name, dimension, sample_size)
-
 
 from src.chatgpt_data_processor import chatgpt_concept_iterator
 from src.chatgpt_data_processor import iterate_backward_connections # (concept_dict)
@@ -42,21 +36,17 @@ final_connection_data_file = 'final_connection_data.txt'
 
 mode='define'
 
-
-
-
-
 if mode=='generate_connections':
     start_depth = 0
     end_depth = 3
     run_for_sec_before_save = 10
-    concept_end_point='problem solving'
-    file_path= folder +  '/' + raw_files + concept_end_point.replace(' ', '_') + '.txt'
+    starting_concept='problem solving'
+    file_path= folder +  '/' + raw_files + starting_concept.replace(' ', '_') + '.txt'
     raw_concept_dict = json_to_dict(file_path)           
     keep_going = True
     while keep_going:        
         return_time = time.time() + run_for_sec_before_save
-        raw_concept_dict = chatgpt_concept_iterator(openai, concept_end_point, start_depth, end_depth, concept_end_point, raw_concept_dict, return_time)              
+        raw_concept_dict = chatgpt_concept_iterator(openai, starting_concept, start_depth, end_depth, starting_concept, raw_concept_dict, return_time)              
         dict_to_json(file_path, raw_concept_dict)        
         keep_going = time.time() > return_time
         print('saving now...')
@@ -79,7 +69,6 @@ if mode=='combine_data_and_refine':
     refined_concept_data = sort_concept_by_popularity(refined_concept_data, concept_popularity)
     dict_to_json(folder +  '/' + refined_file, refined_concept_data)
     
-
 if mode=='create_evaluation_ratings':
     required_sample = 8
     dimension = ['concrete', 'abstract']
@@ -113,7 +102,6 @@ if mode=='create_evaluation_ratings':
             dimension_rating_data[key][dimension_name].append(rating_dict[key]['value'])  
         dict_to_json(folder +  '/' + dimension_rating_file, dimension_rating_data)
     
-
 if mode=='combine_final_file':
     ratings_to_be_included=['all']
     
@@ -154,13 +142,11 @@ if mode=='write_to_firestore':
             chunk_nro=chunk_nro+1
     write_firebase(firestore_db, 'conceptBrowser', 'finalConceptData_' + str(chunk_nro), chunk_to_save)
  
-
 if mode=='define':
     definition_length = 80
 
     refined_concept_data = json_to_dict(folder +  '/' + refined_file) 
     refined_concept_keys = list(refined_concept_data.keys()) # these concept we want to define
-
 
     for dict_index, key in enumerate(refined_concept_keys):
         key = key.replace('/', '-')

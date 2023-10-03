@@ -15,7 +15,6 @@ def create_related_concepts(openai, concept, nro):
     return eval(response_content.lower())
 
 
-
 def create_definition(openai, concept, nro_words):
     text = 'Return a python string array that explains: """' + concept + '""" in ' + str(nro_words) + ' words' 
     message_log = [
@@ -24,8 +23,6 @@ def create_definition(openai, concept, nro_words):
     response_content = chat_completion_create(openai, message_log)
 
     return response_content
-
-
 
 
 def sort_concepts_along_dimension(openai, concept_array, dimension):
@@ -48,10 +45,6 @@ def sort_concepts_along_dimension(openai, concept_array, dimension):
     
     print("Failed after maximum retries. Returning an empty array.")
     return []
-
-
-
-
 
 
 def is_valid_array_expression(expr):

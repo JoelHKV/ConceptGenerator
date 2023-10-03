@@ -19,9 +19,6 @@ def get_sample_underpresented(dimension_rating_data, dimension_name, dimension, 
     return random_keys_list, smallest_length 
 
 
-
-
-
 def json_to_dict(file_path):
     try:
         with open(file_path, 'r') as file:
