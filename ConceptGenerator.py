@@ -9,6 +9,10 @@ from utils.my_creds import get_openai_key
 from utils.little_helpers import dict_to_json #(file_path, data_dict)
 from utils.little_helpers import json_to_dict #(file_path)
 from utils.little_helpers import get_sample_underpresented # (dimension_rating_data, dimension_name, dimension, sample_size)
+from utils.little_helpers import dict_to_numpy #(dict_data, key_data, max_nro_values)  
+
+from utils.statistics import compute_icc #(numpy array) .shape[0] = items, .shape[1] = repeated measurements 
+
 
 from src.chatgpt_data_processor import chatgpt_concept_iterator
 from src.chatgpt_data_processor import iterate_backward_connections # (concept_dict)
@@ -17,6 +21,8 @@ from src.chatgpt_data_processor import sort_concept_by_popularity # (concept_dic
 from src.chatgpt_data_processor import generate_concept_rating # (openai, concept_dict, dimension)
 from src.chatgpt_data_processor import generate_concept_definition #(openai, concept, length)
 from src.chatgpt_data_processor import add_rating_to_concept_data #(concept_dict, rating_dict)
+
+from src.chatgpt_data_processor import generate_alphabetical_rating #(concept_keys):
 
 import openai
 
@@ -34,7 +40,7 @@ refined_file = 'combined_refined_concept_data.txt'
 dimension_rating_file = 'dimension_rating_data.txt'
 final_connection_data_file = 'final_connection_data.txt'
 
-mode='define'
+mode='write_to_firestore'
 
 if mode=='generate_connections':
     start_depth = 0
@@ -72,7 +78,10 @@ if mode=='combine_data_and_refine':
 if mode=='create_evaluation_ratings':
     required_sample = 8
     dimension = ['concrete', 'abstract']
+    
     #dimension = ['simple', 'complex']
+    #dimension = ['alphabetical', 'alphabetical']
+
     dimension_name = dimension[1]
     
     append_existing_rating_data = True
@@ -97,11 +106,46 @@ if mode=='create_evaluation_ratings':
     while smallest_sample<required_sample:
         value = get_sample_underpresented(dimension_rating_data, dimension_name, dimension, 110)
         random_keys_list, smallest_sample = value
-        rating_dict = generate_concept_rating(openai, random_keys_list, dimension)  
+        if dimension_name!='alphabetical': # normal ChatGPT run
+            rating_dict = generate_concept_rating(openai, random_keys_list, dimension)
+        else: # contrasted to alphabetical sorting that emulates perfect measurements for statistical testing 
+            rating_dict = generate_alphabetical_rating(random_keys_list)
         for key in rating_dict:
             dimension_rating_data[key][dimension_name].append(rating_dict[key]['value'])  
         dict_to_json(folder +  '/' + dimension_rating_file, dimension_rating_data)
+
+
+if mode=='intraclass_CC_for_evaluation_ratings':
+
+    dimension_rating_data = json_to_dict(folder +  '/' + dimension_rating_file)
+
+    nro_measurements_per_concepts = 8
+    this_dimension = 'abstract' # the concept to be evaluated
+    evaluation_rating_data = dict_to_numpy(dimension_rating_data, this_dimension, nro_measurements_per_concepts)
     
+    # emulate perfect measurements with alphabetically sorted concepts, find the theoretical maximum value
+    alphabetical_rating_data = json_to_dict(folder +  '/dimension_rating_data_alphabetical.txt')
+    alphabetical_evaluation_data = dict_to_numpy(alphabetical_rating_data, 'alphabetical', nro_measurements_per_concepts)
+
+    icc_test = round(compute_icc(evaluation_rating_data), 2)
+    icc_theoretical= round(compute_icc(alphabetical_evaluation_data), 2)
+    print("Intraclass Correlation Coefficient (ICC):", icc_test, ". Theoretical maximum ICC for this measurement:",  icc_theoretical)  
+    
+if mode=='show_most_concrete_or_abstract_concepts':
+    abstract=False
+    nro_concepts_to_show = 10
+    dimension_rating_data = json_to_dict(folder +  '/' + dimension_rating_file)
+    rating_averages = []
+    for key in dimension_rating_data:
+        this_rating_array = dimension_rating_data[key]['abstract']
+        rating_average = sum(this_rating_array) / len(this_rating_array)
+        rating_averages.append((key, rating_average)) 
+    print(len(rating_averages))         
+    rating_averages.sort(key=lambda x: x[1], reverse=abstract)
+    top_10 = rating_averages[:nro_concepts_to_show]
+    for key, rating_average in top_10:
+        print(f"{key}, Rating: {round(rating_average, 2)}")
+        
 if mode=='combine_final_file':
     ratings_to_be_included=['all']
     

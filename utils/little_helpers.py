@@ -1,5 +1,6 @@
 import json
 import random
+import numpy as np
 def return_sub_dict(whole_dict, filter_field_name, filter_value):
     #sub_dict = [value for value in whole_dict.values() if value[filter_field_name] == filter_value]
     sub_dict = {key: value for key, value in whole_dict.items() if value.get(filter_field_name) == filter_value}
@@ -61,3 +62,11 @@ def dict_to_csv(csv_file_path, data_dict):
         writer = csv.writer(csv_file)
         writer.writerow(data_dict.keys())  # Write header row
         writer.writerows(zip(*data_dict.values()))  # Write data rows
+        
+
+def dict_to_numpy(dict_data, key_data, max_nro_values):   
+    rating_arrays = []
+    for key in dict_data:
+        this_rating = dict_data[key][key_data][:max_nro_values]
+        rating_arrays.append(np.array(this_rating))
+    return np.vstack(rating_arrays)    

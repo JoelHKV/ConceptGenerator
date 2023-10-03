@@ -168,53 +168,31 @@ This dictionary is stored locally as `combined_refined_concept_data.txt`.
 ### Evaluate Concepts with ChatGPT
 
 This step involves the evaluation of the concepts created earlier. 
+Here we just give instructions for executing the script and understanding
+the output data. 
+For the overall philosophy, experimentation and statistical analyses related to
+this step, refer this section
+
 To execute this step, set ```mode='create_evaluation_ratings'``` 
-in ```ConceptGenerator.py ```.
+in ```ConceptGenerator.py ```. To define an evaluation dimension,
+use the following format (e.g., ```dimension = ['concrete', 'abstract']```). 
 
-The concepts can be evaluated across any user-defined dimension. To define a dimension,
-use the following format (e.g., ```dimension = ['concrete', 'abstract']```). The upper
-end of the dimension is also used as the name for the output files 
-(e.g., produces a subkey `abstract`). Here, we have used "concrete vs. abstract" 
-as an example dimension. 
+The resulted evaluation ratings are appended into `dimension_rating_data.txt`.
+This dictionary is organized as follows:
+- Previously generated concepts are the main keys
+- Upper end of the dimension is the subkey (e.g., `abstract`)
+- Numerical array is the value
 
-It's worth mentioning the suitability of ChatGPT 3.5 for such an evaluation. 
-One way to obtain the desired data would be to request ChatGPT to return a 
-score ranging from 0 (=concrete) to 1 (=abstract). However, this approach 
-yielded unreliable and counter-intuitive results. A more robust approach 
-implemented here is to request ChatGPT to sort the input concepts from 
-the most concrete to the most abstract. The exact reason why the latter 
-approach is better is unclear, but it probably has to do with the fact 
-that Large Language Models (LLMs), unlike general-purpose computers, 
-excel in processing verbal rather than numerical information.
-
-
-The method used here begins with initializing a dictionary where all concepts 
-serve as keys, with empty arrays as their corresponding values.
-
-The repeated steps are as follows:
-
-- Measure the length of the value array for each concept
-- Select 110 keys with the shortest value arrays (randomize for equal values)
-- In chunks of 11, request ChatGPT to sort the concepts
-- Based on the location in the sorted array, assign a value between 0 and 1 to each concept
-- Return all 110 values and append them to the original dictionary
-- Save the value array in case one ChatGPT request crashes at some point
-- Repeat the above steps until the defined minimum length of the value array has been reached
-
-
-With the same number of ChatGPT requests compared to the naive approach 
-discussed earlier, this method allows each concept to be rated 11 times. 
-This reduces the impact of random erroneous results, which ChatGPT sometimes produces.
-
-The `generate_concept_rating` function is responsible for taking 110 concepts 
-(or any number divisible by 11) and returning a value dictionary. 
-These values are then appended to the final data stored in `dimension_rating_data.txt`.
+The required sample (e.g., ```required_sample = 8```) determines how many
+evaluation ratings are appended into the array. 
 
 It is important to note that the boolean variable 
 `append_existing_rating_data` determines whether the final data 
 file is appended or overwritten. For the initial run, this should 
 be set to `False`, and then switched to `True`. The value should be `True`
-also when another dimension (e.g., simple vs. complex) is being added.
+also when another dimension (e.g., simple vs. complex) is being added. In this case,
+the script simply adds another subkey to the dictonary and starts appending values to
+the correspending array.
 
 ### Add Ratings to Interconnectedness Data
 
@@ -291,6 +269,135 @@ Here's how we accomplish this in different scripts:
 `run_for_sec_before_save = 10` and then resumes the action
 - In the evaluation script, 110 ratings are requested at a time and appended to the data file before requesting new ratings.
 - The summary generation script interacts with Firestore directly and checks which summaries have already been written.
+
+## ChatGPT for Evaluating Entities
+
+One special aspect of this project is to utilize ChatGPT for evaluating
+entities. ChatGPT can be used for evaluating nearly anything, 
+from concepts to products, services, content, and more.
+
+To evaluate entities meaningfully, two things have to be true. First, 
+the entities have to form a group so that their comparison 
+makes sense (e.g., concepts in this project). Second, there has to 
+be a continuous dimension along which the entities can be rated. This dimension 
+must have distinct lower and upper ends (e.g., concrete and abstract).
+
+### Evolution of Approach
+
+In this project, we experimented with various ways to obtain such evaluations.
+One approach was simply to request ChatGPT to return a 
+score ranging from 0 (concrete) to 1 (abstract). However, this approach 
+yielded unreliable and counter-intuitive results.
+
+The final approach is to request ChatGPT to sort the input entities (e.g., 
+sort these concepts ['stone', 'sky', 'mind'] from concrete to abstract). The 
+request returns a sorted array, and the location in this sorted array is one 
+data point from which the final rating is derived.
+
+The exact reason why this approach is better is somewhat unclear, 
+but it probably has to do with the fact 
+that Large Language Models (LLMs), unlike general-purpose computing, 
+excel in processing verbal rather than numerical information. Additionally, 
+sorting might outperform one-entity-at-a-time evaluations because more 
+entities create more content for the evaluation.
+
+This approach is also more efficient than the one-entity-at-a-time approach, 
+as per ChatGPT's request. Indeed, since each request yields ratings for all 
+the input concepts, we can run more ratings, reducing the impact of random 
+erroneous results, which ChatGPT sometimes produces.
+
+ 
+### Step by Step
+
+Here, we apply the above principle for evaluating concepts along the concrete vs. 
+abstract dimension. Other dimensions can be evaluated simply by changing 
+the dimension variable (e.g., ```dimension = ['concrete', 'abstract']```).
+
+The method begins by initializing a dictionary where all concepts 
+serve as keys, with empty arrays as their corresponding values.
+
+The repeated steps are as follows:
+
+- Measure the length of the value array for each concept (0 for the first round)
+- Select 110 keys with the shortest value arrays (randomize for equal values)
+- In chunks of 11, request ChatGPT to sort the concepts
+- Based on the location in the sorted array, assign a value between 0 and 1 to each concept
+- Return all 110 values and append them to the original dictionary
+- Save the value array in case one ChatGPT request crashes at some point
+- Repeat the above steps until the defined minimum length of the value array has been reached
+
+#### Function to Generate Actual Data
+
+The `generate_concept_rating` function takes a concept array as an argument and 
+divides it into batches that are 11 concepts long (handy for obtaining 
+ratings from 0 to 1 with a 0.1 increment). The function returns a value 
+dictionary, which is, in turn, appended to the final data stored in 
+`dimension_rating_data.txt`.
+
+#### Function to Generate Mock Data
+
+The `generate_alphabetical_rating` function returns data in the same format as 
+the actual `generate_concept_rating` function, but the data itself is nothing
+but an alphabetical sorting of concepts (instead of their evaluative sorting). 
+Since alphabetical sorting is flawless, this emulates perfect measurements and 
+thereby serves as a figure of merit for the approach itself.
+
+This special mock data can be generated by setting 
+`dimension = ['', 'alphabetical']`. The outcome of this run is manually 
+saved in `dimension_rating_data_alphabetical.txt`.
+
+### Quality of Evaluations
+ 
+Since there is no way to objectively determine the abstractness of a concept, 
+we begin by simply showing some results. The second and the fourth columns in Table 1 
+display the 10 most concrete and the 10 most abstract concepts in the data, respectively.
+
+
+| Position | Most Abstract Concepts | Rating | Most Concrete Concepts | Rating |
+|----------|-------------------|--------|-------------------|--------|
+|    1     | feminism          | 1.0    | resistor          | 0.0    |
+|    2     | sacred            | 1.0    | comets            | 0.0    |
+|    3     | consciousness     | 0.96   | kite              | 0.0    |
+|    4     | sacrosanct        | 0.96   | drilling          | 0.0    |
+|    5     | spiritual          | 0.94   | submarine         | 0.0    |
+|    6     | supreme being     | 0.93   | boy               | 0.0    |
+|    7     | peace             | 0.93   | animals           | 0.0    |
+|    8     | optimistic        | 0.93   | microorganisms    | 0.0    |
+|    9     | revulsion         | 0.92   | burglary          | 0.0    |
+|   10     | revolution         | 0.91   | kiteboarding      | 0.01   |
+
+ It is intuitively clear that the items in the second column are more 
+ abstract than the items in the fourth column. The extent to which 
+ these ratings would agree with human evaluations is subject to further investigation.
+
+#### Computation of Intraclass Correlation Coefficient
+
+To evaluate the performance of ChatGPT, we compute the Intraclass 
+Correlation Coefficient (ICC). This is a measure of test-retest 
+reliability for multiple measurements.
+
+We once again use ```ConceptGenerator.py ``` and 
+set ```mode='intraclass_CC_for_evaluation_ratings'``` to run this analysis.
+
+First, we use the `dict_to_numpy` function to arrange the rating 
+data into a 2D numpy array (2171 by 8), where the former represents 
+the between-concept and the latter represents the within-concept dimension.
+
+Second, the array is passed into the `compute_icc` function, which returns 
+ICC value. Finally, we repeated the above steps for the mock data that 
+emulates perfect measurements.
+
+These analyses yielded:
+
+**ICC(ChatGPT) = 0.47** 
+
+**ICC(theoretical) = 0.85** 
+
+The results indicate a moderate level of agreement between measurements 
+(ICC = 0.47), suggesting that ChatGPT can rate concepts somewhat reliably. 
+However, the value also falls short of the theoretical ideal (ICC = 0.85). 
+That said, given the subjective nature of the ratings, even moderate 
+agreement is quite a remarkable outcome achieved by a computer.
 
 ## API Keys
 ### ChatGPT
