@@ -2,8 +2,6 @@
 
 ## Table of Contents
 
-# Table of Contents
-
 1. [General Information](#general-information)
 2. [Introduction](#introduction)
 3. [Getting Started](#getting-started)
