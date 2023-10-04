@@ -169,9 +169,8 @@ This dictionary is stored locally as `combined_refined_concept_data.txt`.
 
 This step involves the evaluation of the concepts created earlier. 
 Here we just give instructions for executing the script and understanding
-the output data. 
-For the overall philosophy, experimentation and statistical analyses related to
-this step, refer this section
+the output data. Refer [ChatGPT for Evaluating Entities] for 
+the overall philosophy, experimentation and statistical analyses.
 
 To execute this step, set ```mode='create_evaluation_ratings'``` 
 in ```ConceptGenerator.py ```. To define an evaluation dimension,
@@ -415,10 +414,27 @@ To use Firestore, you need a Google account and initialization
 in the Google Cloud Platform. Here, the `init_firebase()` function 
 reads a locally stored credentials certificate.
 
-## Known Issues
-- The quality of evaluation ratings is still mediocre
 ## Roadmap
-- Explore new ways to use ChatGPT for evaluations
-- Develop an automated and error-tolerant framework for running complex ChatGPT requests
 
+### ChatGPT for Evaluating Entities
+
+We aim to investigate the following ways to make ChatGPT even better for 
+evaluating entities:
+
+- There are computationally more accurate ways to convert the sorting 
+results into values, factoring in the other concepts that appear in 
+the sorting (increasing the theoretical ICC will also improve the practical ICC).
+- Find prompting techniques that yield more robust results, including
+the verification of ChatGPT's own outcome (e.g., 'Is this the order you really think is the most accurate?').
+- Experiment with anchoring techniques, i.e., using well-tested ratings 
+as anchors to provide context for new ratings.
+
+### Robust Python Environment for Running ChatGPT
+We aim to build an environment where complex prompting requests can be 
+fully automated. To utilize the full potential of ChatGPT, experimentation 
+is necessary, which in turn requires a robust, one-click environment even 
+for the most complex and interactive requests.
 ## Contact Information
+
+For inquiries or collaboration opportunities, please feel free to contact me via email. 
+My name is listed on [the Profile page](https://github.com/JoelHKV), and I am using Gmail.
