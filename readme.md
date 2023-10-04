@@ -1,5 +1,46 @@
 # Concept Generator
 
+## Table of Contents
+
+1. [Concept Generator](#concept-generator)
+2. [General Information](#general-information)
+3. [Introduction](#introduction)
+4. [Getting Started](#getting-started)
+    1. [Installation](#installation)
+    2. [Clone the Repository](#clone-the-repository)
+    3. [Install Dependencies](#install-dependencies)
+    4. [Configuration](#configuration)
+    5. [Run the Project](#run-the-project)
+    6. [Explore the Output](#explore-the-output)
+5. [Technologies Used](#technologies-used)
+6. [Folder Structure](#folder-structure)
+    1. [ConceptGenerator.py](#conceptgeneratorpy)
+    2. [src/](#src)
+    3. [utils/](#utils)
+    4. [data/](#data)
+7. [Data Generation and Post-Processing](#data-generation-and-post-processing)
+    1. [Generate Interconnected Concepts with ChatGPT](#generate-interconnected-concepts-with-chatgpt)
+    2. [Refine Concept Connections](#refine-concept-connections)
+    3. [Evaluate Concepts with ChatGPT](#evaluate-concepts-with-chatgpt)
+    4. [Add Ratings to Interconnectedness Data](#add-ratings-to-interconnectedness-data)
+    5. [Write to Firestore](#write-to-firestore)
+    6. [Summarize Concepts with ChatGPT](#summarize-concepts-with-chatgpt)
+    7. [Data Collection Management](#data-collection-management)
+8. [ChatGPT for Evaluating Entities](#chatgpt-for-evaluating-entities)
+    1. [Evolution of Approach](#evolution-of-approach)
+    2. [Step by Step](#step-by-step)
+        1. [Function to Generate Actual Data](#function-to-generate-actual-data)
+        2. [Function to Generate Mock Data](#function-to-generate-mock-data)
+    3. [Quality of Evaluations](#quality-of-evaluations)
+        1. [Computation of Intraclass Correlation Coefficient](#computation-of-intraclass-correlation-coefficient)
+9. [API Keys](#api-keys)
+    1. [ChatGPT](#chatgpt)
+    2. [Firestore](#firestore)
+10. [Roadmap](#roadmap)
+    1. [ChatGPT for Evaluating Entities](#chatgpt-for-evaluating-entities)
+    2. [Robust Python Environment for Running ChatGPT](#robust-python-environment-for-running-chatgpt)
+11. [Contact Information](#contact-information)
+
 ## General Information
 
 Concept Generator utilizes ChatGPT 3.5 to generate multifaceted data 
